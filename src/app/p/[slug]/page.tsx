@@ -313,6 +313,9 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
           )}
 
           <div className="mt-3 space-y-3">
+            <datalist id="dawai-names">
+              {medicines.map((m) => <option key={m.id} value={m.name} />)}
+            </datalist>
             {rows.map((r) => {
               const match = r.name.trim() ? fuzzyMatch(r.name, medicines) : null;
               return (
@@ -325,9 +328,6 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
                       onChange={(e) => updateRow(r.id, { name: e.target.value })}
                       placeholder="e.g. Remethan"
                     />
-                    <datalist id="dawai-names">
-                      {medicines.map((m) => <option key={m.id} value={m.name} />)}
-                    </datalist>
                   </label>
                   {r.name.trim() && (
                     <p className="mt-1 text-[14px] font-semibold text-emerald-700">
