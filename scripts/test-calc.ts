@@ -59,13 +59,13 @@ const bill = calcBill([
 ], meds);
 const rem = bill.lines[0];
 check("Remethan units (1+1 x 7d)", rem.unitsNeeded, 14);
-check("Remethan packs (14 / 10, rounded up)", rem.packsNeeded, 2);
-check("Remethan line total (2 x 100)", rem.lineTotal, 200);
+check("Remethan packs (14 / 10, rounded up, stock only)", rem.packsNeeded, 2);
+check("Remethan line total PER UNIT (14 tabs x Rs 10)", rem.lineTotal, 140);
 check("Eskem units (1 x 7d)", bill.lines[3].unitsNeeded, 7);
-check("Eskem packs (7 / 10)", bill.lines[3].packsNeeded, 1);
+check("Eskem line total PER UNIT (7 caps x Rs 10)", bill.lines[3].lineTotal, 70);
 check("Sunvit packs (7d, 1/week)", bill.lines[5].packsNeeded, 1);
 check("Sunvit total (1 x 500)", bill.lines[5].lineTotal, 500);
-check("grand total (200*3 + 100*2 + 500)", bill.total, 1300);
+check("grand total PER UNIT (140*3 + 70*2 + 500)", bill.total, 1060);
 
 // --- Injection: 20 days at 1 in 10 days = 2 injections ---
 const injBill = calcBill([{ name: "Sunvit", dose: "1", days: 20, injEveryDays: 10 }], meds);
@@ -76,7 +76,7 @@ const reduced = reduceDaysToBudget(
   [{ name: "Remethan", dose: "1+1", days: 7 }],
   meds, 100
 );
-check("budget 100 fits 2 packs -> days reduced to 5 (10 tabs = 1 pack)", reduced.items[0].days, 5);
+check("budget 100 fits per-unit -> days reduced to 5 (10 tabs x Rs 10)", reduced.items[0].days, 5);
 check("budget reduced total", reduced.bill.total, 100);
 
 console.log(`\n${pass} passed, ${fail} failed`);

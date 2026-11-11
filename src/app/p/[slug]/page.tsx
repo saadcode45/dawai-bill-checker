@@ -423,8 +423,9 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
                   </p>
                 </div>
                 <p className="mt-1 text-[14px] text-neutral-600">
-                  {line.dose} × {line.days} {t(lang, "days")} = {line.unitsNeeded} units → {line.packsNeeded} {t(lang, "packs")}
-                  {!line.priceNotSet && !line.notFound && ` × Rs ${line.packPrice}`}
+                  {line.medicine?.type === "Syrup" || line.medicine?.type === "Cream" || line.medicine?.type === "Drops" || line.medicine?.type === "Inj"
+                    ? `${line.dose} × ${line.days} ${t(lang, "days")} = ${line.packsNeeded} ${t(lang, "packs")} × Rs ${line.packPrice}`
+                    : `${line.dose} × ${line.days} ${t(lang, "days")} = ${line.unitsNeeded} ${line.medicine?.pack_unit ?? "units"} × Rs ${Math.round(line.unitPrice * 100) / 100} = Rs ${line.lineTotal}`}
                 </p>
               </div>
             ))}
@@ -527,7 +528,7 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
           <div className="mt-3 overflow-hidden rounded-2xl bg-white shadow-sm">
             {finalBill.lines.map((line, i) => (
               <div key={i} className="flex items-start justify-between gap-2 border-b border-neutral-100 p-3 last:border-0">
-                <p className="min-w-0 break-words text-[16px] font-bold">{line.billedName} <span className="text-[14px] font-normal text-neutral-500">× {line.packsNeeded} {t(lang, "packs")} • {line.days} {t(lang, "days")}</span></p>
+                <p className="min-w-0 break-words text-[16px] font-bold">{line.billedName} <span className="text-[14px] font-normal text-neutral-500">{line.medicine?.type === "Syrup" || line.medicine?.type === "Cream" || line.medicine?.type === "Drops" || line.medicine?.type === "Inj" ? `× ${line.packsNeeded} ${t(lang, "packs")}` : `× ${line.unitsNeeded} ${line.medicine?.pack_unit ?? "units"}`} • {line.days} {t(lang, "days")}</span></p>
                 <p className="shrink-0 text-[16px] font-bold">{line.priceNotSet ? t(lang, "priceNotSet") : `Rs ${line.lineTotal}`}</p>
               </div>
             ))}

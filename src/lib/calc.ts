@@ -39,6 +39,8 @@ export interface BillLine {
   unitsNeeded: number;
   packsNeeded: number;
   packPrice: number;
+  /** Price of ONE unit (one tab / cap / sachet / injection). pack_price / pack_qty. */
+  unitPrice: number;
   lineTotal: number;
   priceNotSet: boolean;
   notFound: boolean;
@@ -184,11 +186,13 @@ export function isSyrupLike(type: MedicineType): boolean {
 }
 
 /**
- * One bill line. Tablets/capsules/sachets: dose x days, rounded UP to full
- * packs. Syrups/creams/drops: 1 full bottle normally; more if the course is
- * long (units = dose spoons per day is not tracked, so a syrup is 1 bottle
- * per 7 days of course as a safe estimate — the pharmacy corrects it at the
- * counter). Injections: from the Urdu frequency under the medicine.
+ * One bill line. CHANGED 2026-11-10 on user instruction: bill by NUMBER OF
+ * UNITS (tabs / caps / sachets), NOT by full packs.
+ * Example: pack Rs 300 for 10 tabs = Rs 30 per tab. 14 tabs needed = Rs 420,
+ * NOT 2 packs = Rs 600. Reducing days now lowers the total proportionally,
+ * so a Rs 1500 budget can actually fit.
+ * Syrups/creams/drops CANNOT be split — they stay 1 full bottle (1 per
+ * 7 days of course). Injections stay per injection (pack is normally 1 inj).
  */
 export function calcLine(item: BillItemInput, list: PharmacyMedicine[]): BillLine {
   const perDay = parseDose(item.dose);
@@ -203,31 +207,37 @@ export function calcLine(item: BillItemInput, list: PharmacyMedicine[]): BillLin
     return {
       requestedName: item.name, medicine: null, billedName: item.name,
       substituted: false, dose: item.dose, perDay, days,
-      unitsNeeded: 0, packsNeeded: 0, packPrice: 0, lineTotal: 0,
+      unitsNeeded: 0, packsNeeded: 0, packPrice: 0, unitPrice: 0, lineTotal: 0,
       priceNotSet: false, notFound: true,
     };
   }
   const packQty = Math.max(1, med.pack_qty || 1);
+  const packPrice = med.pack_price || 0;
+  const unitPrice = packPrice / packQty;
   let unitsNeeded: number;
   let packsNeeded: number;
+  let lineTotal: number;
   if (med.type === "Inj") {
     const every = item.injEveryDays ?? 7;
     packsNeeded = Math.max(1, Math.ceil(days / Math.max(1, every)));
     unitsNeeded = packsNeeded * packQty;
+    lineTotal = Math.round(unitsNeeded * unitPrice);
   } else if (isSyrupLike(med.type)) {
     // 1 full bottle per course; a long course needs another bottle per week.
     packsNeeded = Math.max(1, Math.ceil(days / 7));
     unitsNeeded = packsNeeded * packQty;
+    lineTotal = packsNeeded * packPrice;
   } else {
+    // Tabs / Caps / Sachets: bill per unit, NOT per pack.
     unitsNeeded = Math.ceil(perDay * days);
     packsNeeded = Math.ceil(unitsNeeded / packQty);
+    lineTotal = Math.round(unitsNeeded * unitPrice);
   }
-  const packPrice = med.pack_price || 0;
   return {
     requestedName: item.name, medicine: med, billedName: med.name,
     substituted, dose: item.dose, perDay, days,
-    unitsNeeded, packsNeeded, packPrice,
-    lineTotal: packsNeeded * packPrice,
+    unitsNeeded, packsNeeded, packPrice, unitPrice,
+    lineTotal,
     priceNotSet: packPrice <= 0, notFound: false,
   };
 }
