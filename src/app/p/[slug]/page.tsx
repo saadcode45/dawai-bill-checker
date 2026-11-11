@@ -192,16 +192,45 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
   }
 
   async function applyFewerDays() {
-    const { items, bill: nb } = reduceDaysToBudget(billItems, medicines, budgetNum);
+    const oldTotal = bill?.total ?? 0;
+    const { items, bill: nb, cannotFit } = reduceDaysToBudget(billItems, medicines, budgetNum);
+    // Re-calculate on the server so the final total uses the pharmacy's
+    // real prices, not the client list (they must match, but verify).
+    let final = nb;
+    try {
+      const res = await fetch("/api/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(demoMode ? { items, medicines } : { items, slug }),
+      });
+      if (res.ok) {
+        const j = await res.json();
+        if (j.bill) final = j.bill as Bill;
+      }
+    } catch { /* keep client bill */ }
     setFinalItems(items);
-    setFinalBill(nb);
+    setFinalBill(final);
     const oldDays = billItems[0]?.days ?? 0;
     const newDays = items[0]?.days ?? 0;
-    setChangeNote(
-      lang === "ur"
-        ? `دن کم کر دیے گئے: ${oldDays} دن سے ${newDays} دن`
-        : `Din kam kar diye gaye: ${oldDays} din se ${newDays} din`
-    );
+    if (cannotFit) {
+      setChangeNote(
+        lang === "ur"
+          ? `دن 1 دن تک کم کر دیے، پھر بھی بل Rs ${final.total} ہے — بجٹ Rs ${budgetNum} سے Rs ${final.total - budgetNum} زیادہ ہے۔ ہر دوائی کا 1 پیک لینا ہی پڑے گا، اس لیے کچھ دوائیاں نکالنی ہوں گی۔`
+          : `Din 1 din tak kam kar diye, phir bhi bill Rs ${final.total} hai — budget Rs ${budgetNum} se Rs ${final.total - budgetNum} zyada hai. Har dawai ka 1 pack lena hi parega, is liye kuch dawaiyan nikalni hon gi.`
+      );
+    } else if (final.total === oldTotal) {
+      setChangeNote(
+        lang === "ur"
+          ? `دن ${oldDays} سے ${newDays} دن کر دیے، لیکن بل کم نہیں ہوا (Rs ${oldTotal}) — پیک پورے لینے پڑتے ہیں۔`
+          : `Din ${oldDays} se ${newDays} din kar diye, lekin bill kam nahi hua (Rs ${oldTotal}) — pack pooray lene parte hain.`
+      );
+    } else {
+      setChangeNote(
+        lang === "ur"
+          ? `دن کم کر دیے گئے: ${oldDays} دن سے ${newDays} دن — بل Rs ${oldTotal} سے Rs ${final.total} ہو گیا`
+          : `Din kam kar diye gaye: ${oldDays} din se ${newDays} din — bill Rs ${oldTotal} se Rs ${final.total} ho gaya`
+      );
+    }
     setStep("final");
   }
 
@@ -498,7 +527,7 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
           <div className="mt-3 overflow-hidden rounded-2xl bg-white shadow-sm">
             {finalBill.lines.map((line, i) => (
               <div key={i} className="flex items-start justify-between gap-2 border-b border-neutral-100 p-3 last:border-0">
-                <p className="min-w-0 break-words text-[16px] font-bold">{line.billedName} <span className="text-[14px] font-normal text-neutral-500">× {line.packsNeeded} {t(lang, "packs")}</span></p>
+                <p className="min-w-0 break-words text-[16px] font-bold">{line.billedName} <span className="text-[14px] font-normal text-neutral-500">× {line.packsNeeded} {t(lang, "packs")} • {line.days} {t(lang, "days")}</span></p>
                 <p className="shrink-0 text-[16px] font-bold">{line.priceNotSet ? t(lang, "priceNotSet") : `Rs ${line.lineTotal}`}</p>
               </div>
             ))}

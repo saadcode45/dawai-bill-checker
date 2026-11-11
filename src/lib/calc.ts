@@ -242,13 +242,27 @@ export function calcBill(items: BillItemInput[], list: PharmacyMedicine[]): Bill
   };
 }
 
-/** Reduce days uniformly until the bill fits the budget (never below 1 day). */
-export function reduceDaysToBudget(items: BillItemInput[], list: PharmacyMedicine[], budget: number): { items: BillItemInput[]; bill: Bill } {
-  let current = items.map((it) => ({ ...it }));
-  let bill = calcBill(current, list);
-  while (bill.total > budget && current.some((it) => it.days > 1)) {
-    current = current.map((it) => ({ ...it, days: Math.max(1, it.days - 1) }));
-    bill = calcBill(current, list);
+/** Reduce days uniformly until the bill fits the budget (never below 1 day).
+ * BUG FIX (2026-11-10, user report: budget Rs 1500 changed nothing):
+ * totals are pack-rounded, so reducing days 7 -> 6 often changes NOTHING
+ * (e.g. 12 tabs still needs 2 packs of 10; a syrup/injection still needs
+ * 1 full pack). The old loop reduced days 1-by-1 and stopped at days=1
+ * even when the total was still over budget, while the UI still said
+ * "din kam kar diye". Now we try every uniform target-days value from
+ * the original down to 1, pick the LARGEST days value whose bill actually
+ * fits the budget, and report cannotFit when even 1 day is still over
+ * budget — the patient must then remove medicines instead. */
+export function reduceDaysToBudget(items: BillItemInput[], list: PharmacyMedicine[], budget: number): { items: BillItemInput[]; bill: Bill; cannotFit: boolean } {
+  const maxDays = Math.max(1, ...items.map((it) => Math.max(1, Math.round(it.days || 1))));
+  const origBill = calcBill(items, list);
+  if (origBill.total <= budget) return { items: items.map((it) => ({ ...it })), bill: origBill, cannotFit: false };
+  // Try target = maxDays-1, maxDays-2, ... 1. Days per item = min(original, target).
+  for (let target = maxDays - 1; target >= 1; target--) {
+    const trial = items.map((it) => ({ ...it, days: Math.min(Math.max(1, Math.round(it.days || 1)), target) }));
+    const bill = calcBill(trial, list);
+    if (bill.total <= budget) return { items: trial, bill, cannotFit: false };
   }
-  return { items: current, bill };
+  // Even 1 day does not fit (1 full pack per medicine is the minimum).
+  const oneDay = items.map((it) => ({ ...it, days: 1 }));
+  return { items: oneDay, bill: calcBill(oneDay, list), cannotFit: true };
 }
