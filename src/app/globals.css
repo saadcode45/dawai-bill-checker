@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Mobile-first: the whole app is designed for a 360-390px Android phone.
+   No horizontal scroll anywhere, ever. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  background-color: #f6f7f9;
+  color: #171717;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+/* 16px inputs stop mobile browsers zooming on focus; 48px+ touch targets. */
+input, textarea, select, button {
+  font-size: 16px;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
