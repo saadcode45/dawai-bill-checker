@@ -147,7 +147,17 @@ export default function PatientPage({ params }: { params: Promise<{ slug: string
       const form = new FormData();
       form.append("image", small);
       const res = await fetch("/api/read-slip", { method: "POST", body: form });
-      const j = await res.json();
+      // The server sometimes returns an HTML error page (e.g. Vercel timeout)
+      // instead of JSON. res.json() on HTML throws the cryptic
+      // "Unexpected token 'A', 'An error o'... is not valid JSON" the user
+      // saw. Read as text first and show a friendly message instead.
+      const text = await res.text();
+      let j: { error?: string; items?: unknown[]; commonDays?: number };
+      try {
+        j = JSON.parse(text);
+      } catch {
+        throw new Error("Server took too long to read the photo. Please try again with a clear photo, or type the medicine names instead.");
+      }
       if (!res.ok) throw new Error(j.error || "Could not read the slip.");
       const items = (j.items ?? []) as Array<{ name: string; dose: string; days: number; injEveryDays?: number | null; note?: string | null }>;
       if (items.length === 0) throw new Error("no items");
